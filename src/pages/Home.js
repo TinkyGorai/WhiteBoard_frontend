@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
+// API base URL - use environment variable or default to production
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://white-collab-board.onrender.com';
+
 const Home = () => {
   const [roomId, setRoomId] = useState('');
   const [username, setUsername] = useState('');
@@ -36,7 +39,7 @@ const Home = () => {
     // If creating a room, create it first
     if (activeTab === 'create') {
       try {
-        const response = await fetch('http://127.0.0.1:8001/api/rooms/', {
+        const response = await fetch(`${API_BASE_URL}/api/rooms/`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -86,7 +89,7 @@ const Home = () => {
     } else {
       // If joining, check if room exists first
       try {
-        const response = await fetch(`http://127.0.0.1:8001/api/rooms/${roomId}/check_access/`);
+        const response = await fetch(`${API_BASE_URL}/api/rooms/${roomId}/check_access/`);
         const data = await response.json();
         if (!data.can_access) {
           alert(data.message || 'Access denied to this room.');
