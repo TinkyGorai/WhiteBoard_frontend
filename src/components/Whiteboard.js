@@ -2,7 +2,7 @@ import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 // WebSocket base URL - use environment variable or default to production
-const WS_BASE = process.env.REACT_APP_WS_URL || 'wss://white-collab-board.onrender.com/ws/whiteboard';
+const WS_BASE = 'wss://white-collab-board.onrender.com/ws/whiteboard';
 
 const Whiteboard = ({ roomId, username, sharePermission = 'view' }) => {
   const canvasRef = useRef(null);
