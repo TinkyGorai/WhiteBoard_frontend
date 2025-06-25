@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 // API base URL - use environment variable or default to production
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://white-collab-board.onrender.com';
+const API_BASE_URL = "http://127.0.0.1:8000" || "https://white-collab-board.onrender.com";
 
 const Home = () => {
   const [roomId, setRoomId] = useState('');

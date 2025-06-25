@@ -35,8 +35,6 @@ const Whiteboard = ({ roomId, username, sharePermission = 'view' }) => {
   const [showToolbar, setShowToolbar] = useState(true);
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [showBrushPicker, setShowBrushPicker] = useState(false);
-  const [canUndo, setCanUndo] = useState(false);
-  const [canRedo, setCanRedo] = useState(false);
   const [userPermission, setUserPermission] = useState('view');
   const [showPermissionError, setShowPermissionError] = useState(false);
   const [permissionErrorMessage, setPermissionErrorMessage] = useState('');
@@ -192,8 +190,6 @@ const Whiteboard = ({ roomId, username, sharePermission = 'view' }) => {
       const data = JSON.parse(event.data);
 
       if (data.type === 'board_state') {
-        setCanUndo(data.canUndo);
-        setCanRedo(data.canRedo);
         setLocalHistory(data.history || []);
         setUserPermission(data.user_permission || 'view');
         redrawCanvas(data.history);
@@ -222,9 +218,6 @@ const Whiteboard = ({ roomId, username, sharePermission = 'view' }) => {
       } else if (data.type === 'clear_canvas') {
         clearCanvasLocal();
         setLocalHistory([]);
-      } else if (data.type === 'history_status') {
-        setCanUndo(data.canUndo);
-        setCanRedo(data.canRedo);
       } else if (data.type === 'user_joined') {
         setParticipants(prev => [...prev, data.username]);
       } else if (data.type === 'user_left') {
@@ -302,9 +295,9 @@ const Whiteboard = ({ roomId, username, sharePermission = 'view' }) => {
   };
 
   const handleClear = () => {
-    // Check if user has admin permissions
-    if (userPermission !== 'admin') {
-      setPermissionErrorMessage('Only admins can clear the canvas');
+    // Check if user has edit or admin permissions
+    if (userPermission === 'view') {
+      setPermissionErrorMessage('Only editors or admins can clear the canvas');
       setShowPermissionError(true);
       setTimeout(() => setShowPermissionError(false), 3000);
       return;
@@ -314,34 +307,6 @@ const Whiteboard = ({ roomId, username, sharePermission = 'view' }) => {
       const message = { type: 'clear_canvas' };
       console.log('📤 Sending clear message:', message);
       wsRef.current.send(JSON.stringify(message));
-    }
-  };
-
-  const handleUndo = () => {
-    // Check if user has admin permissions
-    if (userPermission !== 'admin') {
-      setPermissionErrorMessage('Only admins can undo actions');
-      setShowPermissionError(true);
-      setTimeout(() => setShowPermissionError(false), 3000);
-      return;
-    }
-    
-    if (wsRef.current && canUndo) {
-      wsRef.current.send(JSON.stringify({ type: 'undo' }));
-    }
-  };
-
-  const handleRedo = () => {
-    // Check if user has admin permissions
-    if (userPermission !== 'admin') {
-      setPermissionErrorMessage('Only admins can redo actions');
-      setShowPermissionError(true);
-      setTimeout(() => setShowPermissionError(false), 3000);
-      return;
-    }
-    
-    if (wsRef.current && canRedo) {
-      wsRef.current.send(JSON.stringify({ type: 'redo' }));
     }
   };
 
@@ -538,6 +503,18 @@ const Whiteboard = ({ roomId, username, sharePermission = 'view' }) => {
     }
   };
 
+  // Undo/Redo handlers
+  const handleUndo = () => {
+    if (wsRef.current && wsRef.current.readyState === 1) {
+      wsRef.current.send(JSON.stringify({ type: 'undo' }));
+    }
+  };
+  const handleRedo = () => {
+    if (wsRef.current && wsRef.current.readyState === 1) {
+      wsRef.current.send(JSON.stringify({ type: 'redo' }));
+    }
+  };
+
   return (
     <div className="h-screen bg-gray-900 relative overflow-hidden">
       {/* Header */}
@@ -602,36 +579,6 @@ const Whiteboard = ({ roomId, username, sharePermission = 'view' }) => {
       <div className={`absolute top-20 right-4 z-30 transition-all duration-300 ${showToolbar ? 'translate-y-0' : '-translate-y-full'}`}>
         <div className="glass-effect rounded-2xl p-4">
           <div className="flex flex-col gap-3">
-            {/* Undo/Redo */}
-            {userPermission === 'admin' && (
-              <div className="flex gap-2">
-                <button
-                  onClick={handleUndo}
-                  disabled={!canUndo}
-                  className={`w-10 h-10 rounded-lg flex items-center justify-center transition-all ${
-                    !canUndo ? 'bg-gray-800 text-gray-600 cursor-not-allowed' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                  }`}
-                  title="Undo"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-                  </svg>
-                </button>
-                <button
-                  onClick={handleRedo}
-                  disabled={!canRedo}
-                  className={`w-10 h-10 rounded-lg flex items-center justify-center transition-all ${
-                    !canRedo ? 'bg-gray-800 text-gray-600 cursor-not-allowed' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                  }`}
-                  title="Redo"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
-                  </svg>
-                </button>
-              </div>
-            )}
-
             {/* Drawing Tools */}
             <div className="flex flex-col gap-2">
               <button
@@ -800,8 +747,32 @@ const Whiteboard = ({ roomId, username, sharePermission = 'view' }) => {
               </button>
             </div>
 
+            {/* Undo/Redo Buttons */}
+            {(userPermission === 'edit' || userPermission === 'admin') && (
+              <div className="flex flex-col gap-2 mt-2">
+                <button
+                  onClick={handleUndo}
+                  className="w-10 h-10 rounded-lg flex items-center justify-center bg-gray-700 text-gray-300 hover:bg-gray-600 transition-colors"
+                  title="Undo (Ctrl+Z)"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 14l-4-4m0 0l4-4m-4 4h16" />
+                  </svg>
+                </button>
+                <button
+                  onClick={handleRedo}
+                  className="w-10 h-10 rounded-lg flex items-center justify-center bg-gray-700 text-gray-300 hover:bg-gray-600 transition-colors"
+                  title="Redo (Ctrl+Y)"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4 4m0 0l-4 4m4-4H3" />
+                  </svg>
+                </button>
+              </div>
+            )}
+
             {/* Clear Button */}
-            {userPermission === 'admin' && (
+            {(userPermission === 'edit' || userPermission === 'admin') && (
               <button
                 onClick={handleClear}
                 className="w-10 h-10 rounded-lg bg-red-500 text-white hover:bg-red-600 transition-colors flex items-center justify-center"
@@ -884,16 +855,19 @@ const Whiteboard = ({ roomId, username, sharePermission = 'view' }) => {
         <div className="glass-effect rounded-2xl p-4">
           <h3 className="text-sm font-semibold text-gray-300 mb-3">Participants</h3>
           <div className="space-y-2">
+            {/* Only show the current user */}
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+              <span className="text-sm text-gray-300 font-medium">{username} (You)</span>
+            </div>
+            {/*
             {participants.map((participant, index) => (
               <div key={index} className="flex items-center gap-2">
                 <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
                 <span className="text-sm text-gray-400">{participant}</span>
               </div>
             ))}
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
-              <span className="text-sm text-gray-300 font-medium">{username} (You)</span>
-            </div>
+            */}
           </div>
         </div>
       </div>
